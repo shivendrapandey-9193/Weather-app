@@ -547,21 +547,25 @@ def main():
         permission = st.checkbox("Allow access to your location? (Browser GPS - Accurate, requires HTTPS)")
         if permission:
             if GEO_PKG_AVAILABLE:
-                location = streamlit_geolocation(key="geo_comp")
-                if location and location.get('latitude') is not None:
-                    lat = location['latitude']
-                    lon = location['longitude']
-                    full_loc = weather_app.reverse_geocode(lat, lon)
-                    col_geo1, col_geo2 = st.columns([3,1])
-                    with col_geo1:
-                        st.info(f"Detected: {full_loc}")
-                    with col_geo2:
-                        if st.button("Use this Location", use_container_width=True):
-                            st.session_state.user_location_accessed = True
-                            update_weather_data(lat, lon, full_loc)
-                            st.success(f"Real-time forecast loaded for {full_loc}")
-                else:
-                    st.info("Click the geolocation button above to allow access.")
+                try:
+                    location = streamlit_geolocation()
+                    if location and location.get('latitude') is not None:
+                        lat = location['latitude']
+                        lon = location['longitude']
+                        full_loc = weather_app.reverse_geocode(lat, lon)
+                        col_geo1, col_geo2 = st.columns([3,1])
+                        with col_geo1:
+                            st.info(f"Detected: {full_loc}")
+                        with col_geo2:
+                            if st.button("Use this Location", use_container_width=True):
+                                st.session_state.user_location_accessed = True
+                                update_weather_data(lat, lon, full_loc)
+                                st.success(f"Real-time forecast loaded for {full_loc}")
+                    else:
+                        st.info("Click the geolocation button above to allow access.")
+                except Exception as e:
+                    st.error(f"Geolocation error: {e}")
+                    st.info("Falling back to IP location.")
             else:
                 st.info("Browser geolocation unavailable. Using IP fallback.")
         
@@ -1029,4 +1033,4 @@ def display_weather_prediction():
     st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main()
+    mai
