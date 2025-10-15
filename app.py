@@ -165,6 +165,17 @@ css = """
     width: 120px;
     height: 60px;
 }
+
+.pollen-detail {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+}
+
+.pollen-level-low { color: #4CAF50; }
+.pollen-level-moderate { color: #FF9800; }
+.pollen-level-high { color: #F44336; }
 </style>
 """
 st.markdown(css, unsafe_allow_html=True)
@@ -507,7 +518,9 @@ def main():
                     else:
                         st.error("Location not found. Try another query.")
         with col2:
-            if st.button("📍 Use My IP Location", use_container_width=True):
+            st.markdown("**Use My Location**")
+            permission = st.checkbox("Allow access to your approximate location via IP? (No GPS tracking)")
+            if permission and st.button("📍 Fetch My Location", use_container_width=True):
                 try:
                     response = requests.get('http://ip-api.com/json', timeout=10)
                     data = response.json()
@@ -516,11 +529,13 @@ def main():
                         full_loc = f"{data['city']}, {data['country']}"
                         st.session_state.user_location_accessed = True
                         update_weather_data(lat, lon, full_loc)
-                        st.success(f"Set to: {full_loc}")
+                        st.success(f"Set to: {full_loc} (Real-time forecast loaded)")
                     else:
                         st.error("IP location failed.")
                 except Exception as e:
                     st.error(f"IP detection unavailable: {e}")
+            elif not permission:
+                st.info("✅ Enable permission to use your IP-based location for personalized real-time weather.")
         
         # Settings
         st.markdown("### ⚙️ Settings")
@@ -800,10 +815,37 @@ def display_advanced_features():
         st.markdown("### 📊 Pollen Details")
         if st.session_state.weather_data:
             pollen = st.session_state.weather_data['pollen']
-            col_a, col_b, col_c = st.columns(3)
-            with col_a: st.progress(pollen['tree']/10)
-            with col_b: st.progress(pollen['grass']/10)
-            with col_c: st.progress(pollen['weed']/10)
+            # Enhanced detailed pollen information
+            st.markdown('<div class="pollen-detail">', unsafe_allow_html=True)
+            st.markdown('<h4>🌳 Tree Pollen</h4>')
+            level_class = 'pollen-level-low' if pollen['tree'] < 3 else 'pollen-level-moderate' if pollen['tree'] < 6 else 'pollen-level-high'
+            level_desc = 'Low - Minimal impact' if pollen['tree'] < 3 else 'Moderate - Some sensitivity' if pollen['tree'] < 6 else 'High - Significant allergy risk'
+            st.markdown(f'<p class="{level_class}"><strong>{pollen["tree"]}/10</strong> - {level_desc}</p>', unsafe_allow_html=True)
+            st.progress(pollen['tree']/10)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="pollen-detail">', unsafe_allow_html=True)
+            st.markdown('<h4>🌱 Grass Pollen</h4>')
+            level_class = 'pollen-level-low' if pollen['grass'] < 3 else 'pollen-level-moderate' if pollen['grass'] < 6 else 'pollen-level-high'
+            level_desc = 'Low - Minimal impact' if pollen['grass'] < 3 else 'Moderate - Some sensitivity' if pollen['grass'] < 6 else 'High - Significant allergy risk'
+            st.markdown(f'<p class="{level_class}"><strong>{pollen["grass"]}/10</strong> - {level_desc}</p>', unsafe_allow_html=True)
+            st.progress(pollen['grass']/10)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="pollen-detail">', unsafe_allow_html=True)
+            st.markdown('<h4>🌾 Weed Pollen</h4>')
+            level_class = 'pollen-level-low' if pollen['weed'] < 3 else 'pollen-level-moderate' if pollen['weed'] < 6 else 'pollen-level-high'
+            level_desc = 'Low - Minimal impact' if pollen['weed'] < 3 else 'Moderate - Some sensitivity' if pollen['weed'] < 6 else 'High - Significant allergy risk'
+            st.markdown(f'<p class="{level_class}"><strong>{pollen["weed"]}/10</strong> - {level_desc}</p>', unsafe_allow_html=True)
+            st.progress(pollen['weed']/10)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="pollen-detail">', unsafe_allow_html=True)
+            overall_level_class = 'pollen-level-low' if pollen['overall'] < 3 else 'pollen-level-moderate' if pollen['overall'] < 6 else 'pollen-level-high'
+            overall_desc = 'Low - Enjoy outdoors!' if pollen['overall'] < 3 else 'Moderate - Take precautions' if pollen['overall'] < 6 else 'High - Limit exposure'
+            st.markdown(f'<h4>📊 Overall Pollen</h4><p class="{overall_level_class}"><strong>{pollen["overall"]}/10</strong> - {overall_desc}</p>', unsafe_allow_html=True)
+            st.progress(pollen['overall']/10)
+            st.markdown('</div>', unsafe_allow_html=True)
     
     # Favorites CRUD - fixed load
     st.markdown("### ⭐ Favorites")
