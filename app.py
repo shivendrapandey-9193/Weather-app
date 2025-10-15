@@ -25,14 +25,6 @@ import warnings
 # Suppress dotenv warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="dotenv")
 
-# Geolocation package import with fallback
-GEO_PKG_AVAILABLE = False
-try:
-    from streamlit_geolocation import streamlit_geolocation
-    GEO_PKG_AVAILABLE = True
-except ImportError:
-    pass
-
 # Groq import with fallback
 GROQ_AVAILABLE = False
 try:
@@ -292,19 +284,6 @@ class AdvancedWeatherApp:
         # Fallback structured response
         return "- Monitor local alerts for sudden changes.\n- Dress in layers for variable conditions.\n- Stay hydrated regardless of temperature."
     
-    def reverse_geocode(self, lat, lon):
-        """Reverse geocode lat/lon to location name"""
-        try:
-            geolocator = Nominatim(user_agent="weather_app")
-            location = geolocator.reverse(f"{lat}, {lon}", timeout=10)
-            if location:
-                address_parts = location.address.split(',')
-                full_loc = ', '.join(address_parts[-3:]).strip()
-                return full_loc
-        except Exception as e:
-            st.warning(f"Reverse geocoding failed: {e}")
-        return f"Lat: {lat:.4f}, Lon: {lon:.4f}"
-    
     def get_lat_lon_from_location(self, query):
         """Enhanced geocoding with fallback - improved error handling"""
         lat, lon, full_loc = None, None, None
@@ -538,52 +517,25 @@ def main():
                         update_weather_data(lat, lon, full_loc)
                     else:
                         st.error("Location not found. Try another query.")
-        
-        # My Location Section
-        st.markdown("### 📍 My Location")
-        if not GEO_PKG_AVAILABLE:
-            st.warning("For browser geolocation, install: `pip install streamlit-geolocation`")
-        
-        permission = st.checkbox("Allow access to your location? (Browser GPS - Accurate, requires HTTPS)")
-        if permission:
-            if GEO_PKG_AVAILABLE:
+        with col2:
+            st.markdown("**Use My Location**")
+            permission = st.checkbox("Allow access to your approximate location via IP? (No GPS tracking)")
+            if permission and st.button("📍 Fetch My Location", use_container_width=True):
                 try:
-                    location = streamlit_geolocation()
-                    if location and location.get('latitude') is not None:
-                        lat = location['latitude']
-                        lon = location['longitude']
-                        full_loc = weather_app.reverse_geocode(lat, lon)
-                        col_geo1, col_geo2 = st.columns([3,1])
-                        with col_geo1:
-                            st.info(f"Detected: {full_loc}")
-                        with col_geo2:
-                            if st.button("Use this Location", use_container_width=True):
-                                st.session_state.user_location_accessed = True
-                                update_weather_data(lat, lon, full_loc)
-                                st.success(f"Real-time forecast loaded for {full_loc}")
+                    response = requests.get('http://ip-api.com/json', timeout=10)
+                    data = response.json()
+                    if data['status'] == 'success':
+                        lat, lon = data['lat'], data['lon']
+                        full_loc = f"{data['city']}, {data['country']}"
+                        st.session_state.user_location_accessed = True
+                        update_weather_data(lat, lon, full_loc)
+                        st.success(f"Set to: {full_loc} (Real-time forecast loaded)")
                     else:
-                        st.info("Click the geolocation button above to allow access.")
+                        st.error("IP location failed.")
                 except Exception as e:
-                    st.error(f"Geolocation error: {e}")
-                    st.info("Falling back to IP location.")
-            else:
-                st.info("Browser geolocation unavailable. Using IP fallback.")
-        
-        # IP Fallback
-        if st.button("📍 Use IP Location (Approximate)", use_container_width=True):
-            try:
-                response = requests.get('http://ip-api.com/json', timeout=10)
-                data = response.json()
-                if data['status'] == 'success':
-                    lat, lon = data['lat'], data['lon']
-                    full_loc = f"{data['city']}, {data['country']}"
-                    st.session_state.user_location_accessed = True
-                    update_weather_data(lat, lon, full_loc)
-                    st.success(f"Set to: {full_loc}")
-                else:
-                    st.error("IP location failed.")
-            except Exception as e:
-                st.error(f"IP detection unavailable: {e}")
+                    st.error(f"IP detection unavailable: {e}")
+            elif not permission:
+                st.info("✅ Enable permission to use your IP-based location for personalized real-time weather.")
         
         # Settings
         st.markdown("### ⚙️ Settings")
@@ -1033,4 +985,4 @@ def display_weather_prediction():
     st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    mai
+    main()
