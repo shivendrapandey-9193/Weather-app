@@ -25,16 +25,6 @@ import warnings
 # Suppress dotenv warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="dotenv")
 
-# Voice imports with fallback
-try:
-    import speech_recognition as sr
-    import pyttsx3
-    VOICE_ENABLED = True
-except ImportError:
-    sr = None
-    pyttsx3 = None
-    VOICE_ENABLED = False
-
 # Groq import with fallback
 GROQ_AVAILABLE = False
 try:
@@ -42,14 +32,6 @@ try:
     GROQ_AVAILABLE = True
 except ImportError:
     Groq = None
-
-# Mistral import with fallback
-MISTRAL_AVAILABLE = False
-try:
-    from mistralai.client import MistralClient
-    MISTRAL_AVAILABLE = True
-except ImportError:
-    MistralClient = None
 
 # Anthropic import with fallback
 ANTHROPIC_AVAILABLE = False
@@ -160,19 +142,6 @@ css = """
     animation: float 3s ease-in-out infinite;
 }
 
-.voice-command {
-    background: linear-gradient(45deg, #ff00ff, #8000ff);
-    border-radius: 50px;
-    padding: 1rem 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.voice-command:hover {
-    transform: scale(1.05);
-}
-
 .map-container {
     border-radius: 15px;
     overflow: hidden;
@@ -203,13 +172,6 @@ st.markdown(css, unsafe_allow_html=True)
 class WeatherAI:
     def __init__(self):
         self.mood = "neutral"
-        self.voice_engine = None
-        if VOICE_ENABLED:
-            try:
-                self.voice_engine = pyttsx3.init()
-                self.voice_engine.setProperty('rate', 150)
-            except Exception:
-                self.voice_engine = None
         
     def set_mood(self, weather_condition):
         mood_map = {
@@ -221,14 +183,6 @@ class WeatherAI:
             'mist': 'mysterious'
         }
         self.mood = mood_map.get(weather_condition, 'neutral')
-    
-    def speak(self, text):
-        if self.voice_engine:
-            try:
-                self.voice_engine.say(text)
-                self.voice_engine.runAndWait()
-            except:
-                pass
     
     def get_response(self, weather_data):
         temp = weather_data['main']['temp']
@@ -266,14 +220,6 @@ class AdvancedWeatherApp:
                     self.groq_client = Groq(api_key=groq_key)
                 except Exception as e:
                     st.error(f"Groq initialization failed: {e}")
-        self.mistral_client = None
-        mistral_key = os.getenv("MISTRAL_API_KEY")
-        if mistral_key:
-            if MISTRAL_AVAILABLE:
-                try:
-                    self.mistral_client = MistralClient(api_key=mistral_key)
-                except Exception as e:
-                    st.error(f"Mistral initialization failed: {e}")
         self.anthropic_client = None
         anthropic_key = os.getenv("ANTHROPIC_API_KEY")
         if anthropic_key:
@@ -312,16 +258,6 @@ class AdvancedWeatherApp:
                 return completion.choices[0].message.content.strip()
             except Exception as e:
                 st.warning(f"Groq API error: {e}")
-                pass
-        if self.mistral_client:
-            try:
-                response = self.mistral_client.chat(
-                    model="mistral-large-latest",
-                    messages=[{"role": "user", "content": full_prompt}]
-                )
-                return response.choices[0].message.content.strip()
-            except Exception as e:
-                st.warning(f"Mistral API error: {e}")
                 pass
         if self.anthropic_client:
             try:
@@ -530,60 +466,6 @@ class AdvancedWeatherApp:
         ).add_to(m)
         
         return m
-    
-    def create_voice_interface(self):
-        """Voice command interface"""
-        if not VOICE_ENABLED:
-            return
-        
-        st.markdown('<div class="voice-command">', unsafe_allow_html=True)
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            st.markdown('<h3 class="futuristic-font">🎤 Voice Assistant</h3>', unsafe_allow_html=True)
-            st.write("Speak your query: temperature, weather, forecast")
-            
-        with col2:
-            if st.button("🎤 Listen", key="voice_btn"):
-                with st.spinner("Listening..."):
-                    try:
-                        r = sr.Recognizer()
-                        with sr.Microphone() as source:
-                            r.adjust_for_ambient_noise(source)
-                            audio = r.listen(source, timeout=5)
-                        query = r.recognize_google(audio).lower()
-                        st.success(f"Query: {query}")
-                        self.process_voice_command(query)
-                    except sr.WaitTimeoutError:
-                        st.info("No speech detected. Try again.")
-                    except Exception as e:
-                        st.error(f"Recognition failed: {e}")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    def process_voice_command(self, query):
-        """Process voice commands - improved matching"""
-        if not st.session_state.weather_data:
-            st.info("No weather data loaded.")
-            return
-        
-        current = st.session_state.weather_data['current']
-        unit = st.session_state.get('unit', 'metric')
-        unit_symbol = '°C' if unit == 'metric' else '°F'
-        
-        if any(word in query for word in ['temp', 'temperature']):
-            temp = current['main']['temp']
-            response = f"Current temperature: {temp:.1f}{unit_symbol}"
-        elif any(word in query for word in ['weather', 'condition']):
-            cond = current['weather'][0]['description']
-            response = f"Current weather: {cond.title()}"
-        elif any(word in query for word in ['forecast', 'tomorrow']):
-            response = "Displaying forecast. Expect varied conditions ahead."
-        else:
-            response = "I understand queries about temperature, weather, or forecasts."
-        
-        self.ai_assistant.speak(response)
-        st.info(f"🤖 {response}")
 
 # Global app instance
 weather_app = AdvancedWeatherApp()
@@ -637,8 +519,8 @@ def main():
                         st.success(f"Set to: {full_loc}")
                     else:
                         st.error("IP location failed.")
-                except Exception:
-                    st.error("IP detection unavailable.")
+                except Exception as e:
+                    st.error(f"IP detection unavailable: {e}")
         
         # Settings
         st.markdown("### ⚙️ Settings")
@@ -922,9 +804,6 @@ def display_advanced_features():
             with col_a: st.progress(pollen['tree']/10)
             with col_b: st.progress(pollen['grass']/10)
             with col_c: st.progress(pollen['weed']/10)
-    
-    # Voice
-    weather_app.create_voice_interface()
     
     # Favorites CRUD - fixed load
     st.markdown("### ⭐ Favorites")
