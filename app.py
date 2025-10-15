@@ -519,7 +519,7 @@ def main():
                         st.error("Location not found. Try another query.")
         with col2:
             st.markdown("**Use My Location**")
-            permission = st.checkbox("Allow access to your approximate location via IP? (No GPS tracking)")
+            permission = st.checkbox("Allow access to your location via IP? ")
             if permission and st.button("📍 Fetch My Location", use_container_width=True):
                 try:
                     response = requests.get('http://ip-api.com/json', timeout=10)
@@ -535,7 +535,7 @@ def main():
                 except Exception as e:
                     st.error(f"IP detection unavailable: {e}")
             elif not permission:
-                st.info("✅ Enable permission to use your IP-based location for personalized real-time weather.")
+                st.info("✅ Enable permission to use your IP-based location or Location may be slightly inaccurate.")
         
         # Settings
         st.markdown("### ⚙️ Settings")
